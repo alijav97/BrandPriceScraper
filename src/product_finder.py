@@ -52,23 +52,42 @@ class ProductFinder:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Try common product container selectors
-            selectors = [
-                'div[class*="product"]',
-                'article[class*="product"]',
-                'li[class*="product"]',
-                'div[data-product]',
-                '[class*="item-card"]',
+            # Try multiple selector strategies
+            selector_strategies = [
+                # Strategy 1: Data attributes
+                {'selectors': ['[data-product-id]', '[data-item-id]', '[data-sku]']},
+                # Strategy 2: Common class patterns
+                {'selectors': ['div.product', 'div.product-card', 'div.item', 'div.tile']},
+                # Strategy 3: Attribute patterns
+                {'selectors': ['[class*="product"]', '[class*="card"]', '[class*="item"]']},
+                # Strategy 4: List items
+                {'selectors': ['ul > li[class*="product"]', 'ol > li[class*="product"]']},
+                # Strategy 5: Article tags
+                {'selectors': ['article', 'article[class*="product"]']},
             ]
             
-            for selector in selectors:
-                elements = soup.select(selector)
-                if len(elements) >= 5:  # Found products
-                    for element in elements[:limit]:
-                        product = self._extract_product_from_element(element, site_url)
-                        if product:
-                            products.append(product)
+            for strategy in selector_strategies:
+                for selector in strategy['selectors']:
+                    try:
+                        elements = soup.select(selector)
+                        if len(elements) >= 3:  # Found enough products
+                            logger.debug(f"Using selector: {selector}")
+                            for element in elements[:limit]:
+                                product = self._extract_product_from_element(element, site_url)
+                                if product and product.get('name') and product.get('price', 0) > 0:
+                                    products.append(product)
+                            
+                            if len(products) >= 3:
+                                break
+                    except:
+                        continue
+                
+                if len(products) >= 3:
                     break
+            
+            # If still no products, try to extract any links with prices
+            if not products:
+                products = self._extract_any_products(soup, site_url, limit)
             
             logger.info(f"Found {len(products)} products on {site_url}")
             
@@ -137,6 +156,60 @@ class ProductFinder:
             
         except Exception as e:
             logger.error(f"Error searching products: {e}")
+        
+        return products
+    
+    def _extract_any_products(self, soup: BeautifulSoup, site_url: str, limit: int) -> List[Dict]:
+        """
+        Fallback: Extract products from any links on page that look like product pages
+        
+        Args:
+            soup: BeautifulSoup object
+            site_url: Base site URL
+            limit: Number of products to extract
+            
+        Returns:
+            List of products
+        """
+        products = []
+        
+        try:
+            # Find all links that might be products
+            for link in soup.find_all('a', href=True)[:50]:  # Check first 50 links
+                href = link.get('href', '')
+                text = link.get_text(strip=True)
+                
+                # Check if link looks like a product
+                product_patterns = ['product', 'item', 'sku', 'detail', 'page', 'shop']
+                if any(pattern in href.lower() for pattern in product_patterns):
+                    if len(text) > 3 and len(text) < 200:
+                        # Try to extract price from nearby text
+                        parent = link.parent
+                        parent_text = parent.get_text() if parent else ''
+                        
+                        price = 0
+                        price_match = re.search(r'[\d,]+\.?\d*', parent_text)
+                        if price_match:
+                            try:
+                                price = float(price_match.group().replace(',', ''))
+                            except:
+                                pass
+                        
+                        if price > 0:
+                            product_url = href if href.startswith('http') else site_url.rstrip('/') + ('' if href.startswith('/') else '/') + href
+                            products.append({
+                                'name': text[:100],
+                                'price': price,
+                                'link': product_url,
+                                'image': '',
+                                'timestamp': datetime.now().isoformat()
+                            })
+                
+                if len(products) >= limit:
+                    break
+        
+        except Exception as e:
+            logger.debug(f"Error in fallback product extraction: {e}")
         
         return products
     
