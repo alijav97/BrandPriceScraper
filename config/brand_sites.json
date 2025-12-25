@@ -1,0 +1,172 @@
+{
+  "Lululemon": {
+    "name": "Lululemon",
+    "regions": {
+      "US": {
+        "url": "https://www.lululemon.com",
+        "currency": "USD",
+        "currency_code": "$"
+      },
+      "UK": {
+        "url": "https://www.lululemon.co.uk",
+        "currency": "GBP",
+        "currency_code": "£"
+      },
+      "Canada": {
+        "url": "https://www.lululemon.ca",
+        "currency": "CAD",
+        "currency_code": "$"
+      },
+      "UAE": {
+        "url": "https://www.lululemon.ae",
+        "currency": "AED",
+        "currency_code": "د.إ"
+      },
+      "Germany": {
+        "url": "https://www.lululemon.de",
+        "currency": "EUR",
+        "currency_code": "€"
+      }
+    }
+  },
+  "Nike": {
+    "name": "Nike",
+    "regions": {
+      "US": {
+        "url": "https://www.nike.com",
+        "currency": "USD",
+        "currency_code": "$"
+      },
+      "UK": {
+        "url": "https://www.nike.com/gb/en/",
+        "currency": "GBP",
+        "currency_code": "£"
+      },
+      "UAE": {
+        "url": "https://www.nike.com/ae/ar/",
+        "currency": "AED",
+        "currency_code": "د.إ"
+      },
+      "Germany": {
+        "url": "https://www.nike.com/de/de/",
+        "currency": "EUR",
+        "currency_code": "€"
+      },
+      "Australia": {
+        "url": "https://www.nike.com/au/",
+        "currency": "AUD",
+        "currency_code": "A$"
+      }
+    }
+  },
+  "Adidas": {
+    "name": "Adidas",
+    "regions": {
+      "US": {
+        "url": "https://www.adidas.com",
+        "currency": "USD",
+        "currency_code": "$"
+      },
+      "UK": {
+        "url": "https://www.adidas.co.uk",
+        "currency": "GBP",
+        "currency_code": "£"
+      },
+      "UAE": {
+        "url": "https://www.adidas.ae",
+        "currency": "AED",
+        "currency_code": "د.إ"
+      },
+      "Germany": {
+        "url": "https://www.adidas.de",
+        "currency": "EUR",
+        "currency_code": "€"
+      },
+      "Canada": {
+        "url": "https://www.adidas.ca",
+        "currency": "CAD",
+        "currency_code": "$"
+      }
+    }
+  },
+  "Puma": {
+    "name": "Puma",
+    "regions": {
+      "US": {
+        "url": "https://us.puma.com",
+        "currency": "USD",
+        "currency_code": "$"
+      },
+      "UK": {
+        "url": "https://www.puma.com/gb/en/",
+        "currency": "GBP",
+        "currency_code": "£"
+      },
+      "UAE": {
+        "url": "https://www.puma.com/ae/en/",
+        "currency": "AED",
+        "currency_code": "د.إ"
+      },
+      "Germany": {
+        "url": "https://www.puma.com/de/de/",
+        "currency": "EUR",
+        "currency_code": "€"
+      }
+    }
+  },
+  "Apple": {
+    "name": "Apple",
+    "regions": {
+      "US": {
+        "url": "https://www.apple.com",
+        "currency": "USD",
+        "currency_code": "$"
+      },
+      "UK": {
+        "url": "https://www.apple.com/uk/",
+        "currency": "GBP",
+        "currency_code": "£"
+      },
+      "UAE": {
+        "url": "https://www.apple.com/ae/",
+        "currency": "AED",
+        "currency_code": "د.إ"
+      },
+      "Germany": {
+        "url": "https://www.apple.com/de/",
+        "currency": "EUR",
+        "currency_code": "€"
+      },
+      "Australia": {
+        "url": "https://www.apple.com/au/",
+        "currency": "AUD",
+        "currency_code": "A$"
+      }
+    }
+  },
+  "Samsung": {
+    "name": "Samsung",
+    "regions": {
+      "US": {
+        "url": "https://www.samsung.com/us/",
+        "currency": "USD",
+        "currency_code": "$"
+      },
+      "UK": {
+        "url": "https://www.samsung.com/uk/",
+        "currency": "GBP",
+        "currency_code": "£"
+      },
+      "UAE": {
+        "url": "https://www.samsung.com/ae/",
+        "currency": "AED",
+        "currency_code": "د.إ"
+      },
+      "Germany": {
+        "url": "https://www.samsung.com/de/",
+        "currency": "EUR",
+        "currency_code": "€"
+      }
+    }
+  }
+}
