@@ -83,25 +83,30 @@ class BrandSearchEngine:
         sites = []
         
         try:
-            # Search for official site first
-            search_queries = [
-                f"{brand_name} official store {region_info['name']}",
-                f"{brand_name} official website {region_info['name']}",
-                f"{brand_name} site:{'.'.join(region_info['domains'])}",
-                f"{brand_name} shop {region_info['name']}",
-            ]
+            # Method 1: Try direct domain patterns first (most reliable)
+            direct_urls = self._try_direct_domains(brand_name, region_info)
             
-            found_urls = set()
-            
-            for query in search_queries:
-                urls = self._google_search(query)
-                found_urls.update(urls)
+            # Method 2: If direct fails, try Google search
+            if not direct_urls:
+                search_queries = [
+                    f"{brand_name} official store {region_info['name']}",
+                    f"{brand_name} official website {region_info['name']}",
+                ]
+                
+                found_urls = set()
+                for query in search_queries:
+                    urls = self._google_search(query)
+                    found_urls.update(urls)
+                    if found_urls:
+                        break
+                
+                direct_urls = list(found_urls)
             
             # Categorize URLs
             official_sites = []
             retailer_sites = []
             
-            for url in found_urls:
+            for url in direct_urls:
                 if not url or len(url) < 5:
                     continue
                 
@@ -127,9 +132,52 @@ class BrandSearchEngine:
         
         return sites
     
+    def _try_direct_domains(self, brand_name: str, region_info: Dict) -> List[str]:
+        """
+        Try to find brand by constructing common domain patterns
+        
+        Args:
+            brand_name: Brand name
+            region_info: Region information
+            
+        Returns:
+            List of accessible URLs
+        """
+        urls = []
+        brand_lower = brand_name.lower().replace(' ', '')
+        
+        # Try common domain patterns
+        domain_patterns = [
+            f"https://www.{brand_lower}.com",
+            f"https://{brand_lower}.com",
+            f"https://www.{brand_lower}.{region_info['domains'][0]}",
+            f"https://{brand_lower}.{region_info['domains'][0]}",
+        ]
+        
+        # Add regional variations
+        if len(region_info['domains']) > 1:
+            for domain in region_info['domains']:
+                domain_patterns.append(f"https://www.{brand_lower}.{domain}")
+                domain_patterns.append(f"https://{brand_lower}.{domain}")
+        
+        # Test each pattern
+        for url in domain_patterns:
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+                response = self.session.head(url, headers=headers, timeout=5)
+                if response.status_code < 400:
+                    urls.append(url)
+                    logger.debug(f"Found accessible site: {url}")
+            except:
+                pass
+        
+        return urls
+    
     def _google_search(self, query: str) -> List[str]:
         """
-        Search Google and extract URLs
+        Search Google and extract URLs (fallback method)
         
         Args:
             query: Search query
@@ -140,17 +188,33 @@ class BrandSearchEngine:
         urls = []
         
         try:
-            # Use Google search via requests (without needing API key)
-            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
-            
+            # Use a more realistic user agent
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate',
+                'DNT': '1',
             }
             
-            response = self.session.get(search_url, headers=headers, timeout=10)
+            # Search URL
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
+            
+            response = self.session.get(search_url, headers=headers, timeout=10, allow_redirects=True)
+            
+            if response.status_code != 200:
+                logger.debug(f"Google search returned status {response.status_code}")
+                return urls
+            
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Extract URLs from search results
+            # Try multiple parsing methods
+            # Method 1: Look for cite tags (older format)
+            for cite in soup.find_all('cite'):
+                url_text = cite.get_text()
+                if url_text.startswith('http'):
+                    urls.append(url_text)
+            
+            # Method 2: Look for href in search results
             for link in soup.find_all('a', href=True):
                 href = link['href']
                 if href.startswith('/url?q='):
@@ -161,11 +225,22 @@ class BrandSearchEngine:
                     except:
                         pass
             
+            # Method 3: Look for data attributes
+            for element in soup.find_all(attrs={'data-url': True}):
+                url = element.get('data-url')
+                if url and url.startswith('http'):
+                    urls.append(url)
+            
+            # Remove duplicates
+            urls = list(set(urls))
+            
             # Limit results
             urls = urls[:10]
             
+            logger.debug(f"Found {len(urls)} URLs from Google search for '{query}'")
+            
         except Exception as e:
-            logger.debug(f"Search error for '{query}': {e}")
+            logger.debug(f"Google search failed: {e}")
         
         return urls
     

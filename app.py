@@ -97,11 +97,12 @@ if search_button and brand_input:
                     st.warning("⚠️ Could not fetch products from these sites. Sites may have protections.")
             
             else:
-                st.warning(f"⚠️ No sites found for '{brand_input}'. Try a different brand name.")
+                st.warning(f"⚠️ No sites found for '{brand_input}'.")
+                st.info("**Try:** \n- Make sure brand name is spelled correctly\n- Try a more well-known brand\n- Check your internet connection")
         
         except Exception as e:
             st.error(f"❌ Error searching: {str(e)}")
-            st.info("Tip: Try a more specific brand name or try another brand")
+            st.info("Tip: Try a more specific brand name or check your internet connection")
 
 # ============================================================================
 # RESULTS
