@@ -60,15 +60,26 @@ st.set_page_config(
 
 st.title("🛍️ Smart Brand Price Tracker")
 st.markdown("""
-Enter any brand name. We'll search the web to find official stores and retailers 
-across all regions, then compare product prices globally for you.
+**How it works:**
+1. Enter a brand name → We find all their regional websites
+2. Enter a specific product → We search for it across all regions  
+3. See price comparison → Compare prices globally!
 """)
 
 # ============================================================================
-# SIDEBAR - BRAND SEARCH
+# SESSION STATE
 # ============================================================================
 
-st.sidebar.header("🔍 Search Brand")
+if 'brand_sites' not in st.session_state:
+    st.session_state.brand_sites = {}
+if 'current_brand' not in st.session_state:
+    st.session_state.current_brand = ""
+
+# ============================================================================
+# SIDEBAR - STEP 1: BRAND SEARCH
+# ============================================================================
+
+st.sidebar.header("📍 Step 1: Search Brand")
 
 brand_input = st.sidebar.text_input(
     "Enter brand name",
@@ -76,17 +87,15 @@ brand_input = st.sidebar.text_input(
     help="Type any brand you want to track"
 )
 
-search_button = st.sidebar.button("🔍 Search Across Web", use_container_width=True)
+search_button = st.sidebar.button("🔍 Search Brand Sites", use_container_width=True)
 
 # Initialize session state
 if 'brand_sites' not in st.session_state:
-    st.session_state.brand_sites = None
-if 'selected_brand' not in st.session_state:
-    st.session_state.selected_brand = None
+    st.session_state.brand_sites = {}
+if 'current_brand' not in st.session_state:
+    st.session_state.current_brand = ""
 if 'search_engine' not in st.session_state:
     st.session_state.search_engine = SmartSiteSelector()
-if 'featured_products' not in st.session_state:
-    st.session_state.featured_products = None
 
 # ============================================================================
 # SEARCH LOGIC
@@ -100,34 +109,12 @@ if search_button and brand_input:
             
             if brand_sites:
                 st.session_state.brand_sites = brand_sites
-                st.session_state.selected_brand = brand_input
+                st.session_state.current_brand = brand_input
                 
                 # Count sites found
                 total_sites = sum(len(sites) for sites in brand_sites.values())
                 total_regions = len(brand_sites)
-                
                 st.success(f"✅ Found {total_sites} sites in {total_regions} regions!")
-                
-                # Fetch featured products
-                aggregator = ProductAggregator()
-                featured = aggregator.get_featured_products(
-                    brand_sites,
-                    selector.search_engine.regions,
-                    limit=15
-                )
-                
-                if featured:
-                    st.session_state.featured_products = featured
-                    st.info(f"📦 Found {len(featured)} featured products")
-                else:
-                    st.info("📦 Featured products couldn't be auto-fetched from these sites (they may have JavaScript protections). However, you can still search for specific products below!")
-                    # Create some example featured products for demonstration
-                    example_products = [
-                        {'name': f'{brand_input} Product 1', 'price': 99.99, 'link': list(brand_sites.values())[0][0]['url'] if brand_sites else ''},
-                        {'name': f'{brand_input} Product 2', 'price': 149.99, 'link': list(brand_sites.values())[0][0]['url'] if brand_sites else ''},
-                    ]
-                    st.session_state.featured_products = example_products
-            
             else:
                 st.warning(f"⚠️ No sites found for '{brand_input}'.")
                 st.info("**Try:** \n- Make sure brand name is spelled correctly\n- Try a more well-known brand\n- Check your internet connection")
@@ -137,106 +124,124 @@ if search_button and brand_input:
             st.info("Tip: Try a more specific brand name or check your internet connection")
 
 # ============================================================================
-# RESULTS
+# STEP 2: PRODUCT SEARCH (Only show if brand was found)
 # ============================================================================
 
 if st.session_state.brand_sites:
-    selector = st.session_state.search_engine
-    
-    # Show regions found
     st.divider()
-    st.subheader(f"🌍 Regions Found for {st.session_state.selected_brand}")
+    st.sidebar.header("📦 Step 2: Search Product")
     
-    col_regions = st.columns(len(st.session_state.brand_sites))
+    brand_name = st.session_state.current_brand
+    
+    product_input = st.sidebar.text_input(
+        "Enter product name to search",
+        placeholder="e.g., Align Leggings, Air Force 1...",
+        help="Specific product name to find prices for"
+    )
+    
+    search_product_button = st.sidebar.button("🔍 Search Product", use_container_width=True)
+    
+    # ========== DISPLAY BRAND RESULTS ==========
+    
+    st.subheader(f"🌍 Regional Sites Found for {brand_name}")
+    
+    col_regions = st.columns(min(4, len(st.session_state.brand_sites)))
     
     for idx, (region, sites) in enumerate(st.session_state.brand_sites.items()):
-        with col_regions[idx]:
-            region_info = selector.search_engine.get_region_info(region)
-            region_name = region_info.get('name', region) if region_info else region
-            currency = region_info.get('code', '') if region_info else ''
-            
-            with st.container():
-                st.metric(
-                    region_name,
-                    f"{len(sites)} site{'s' if len(sites) != 1 else ''}"
+        col_idx = idx % len(col_regions)
+        with col_regions[col_idx]:
+            with st.container(border=True):
+                st.write(f"**{region}**")
+                st.caption(f"🔗 {len(sites)} site{'s' if len(sites) != 1 else ''}")
+                
+                for site in sites:
+                    badge = "🏢" if site.get('type') == 'official' else "🛒"
+                    st.caption(f"{badge} {site['domain']}")
+    
+    # ========== PRODUCT SEARCH RESULTS ==========
+    
+    if search_product_button and product_input:
+        st.divider()
+        st.subheader(f"💰 Price Comparison: {product_input}")
+        
+        with st.spinner(f"🔍 Searching for '{product_input}' across all regions..."):
+            try:
+                # Search for product across all regions
+                aggregator = ProductAggregator()
+                product_data = aggregator.aggregate_product_prices(
+                    st.session_state.brand_sites,
+                    product_input
                 )
                 
-                with st.expander(f"View sites in {region}"):
-                    for site in sites:
-                        badge = "🏢" if site.get('type') == 'official' else "🛒"
-                        st.write(f"{badge} [{site['domain']}]({site['url']})")
-    
-    st.divider()
-    
-    # ========== FEATURED PRODUCTS ==========
-    
-    if st.session_state.featured_products:
-        st.subheader("📦 Featured Products")
-        
-        # Product selection
-        featured = st.session_state.featured_products
-        product_names = [p['name'] for p in featured]
-        
-        selected_product_idx = st.selectbox(
-            "Select a product to see prices across regions:",
-            range(len(featured)),
-            format_func=lambda x: featured[x]['name'][:50]
-        )
-        
-        if selected_product_idx is not None:
-            selected_product = featured[selected_product_idx]
-            
-            st.divider()
-            st.subheader(f"💰 Price Comparison: {selected_product['name']}")
-            
-            # Aggregate prices across regions
-            aggregator = ProductAggregator()
-            product_data = aggregator.aggregate_product_prices(
-                st.session_state.brand_sites,
-                selected_product['name']
-            )
-            
-            if product_data:
-                # Create comparison table
-                comparison_data = []
-                
-                for region, prices_list in product_data.items():
-                    for price_info in prices_list:
-                        comparison_data.append({
-                            '🌍 Region': region,
-                            '💰 Price': f"{price_info['currency']}{price_info['price']:.2f}",
-                            '💵 Currency': price_info.get('currency', 'USD'),
-                            '🛒 Store': price_info['site'][:60],
-                            '📝 Product': price_info['name'][:50]
-                        })
-                
-                if comparison_data:
-                    comparison_df = pd.DataFrame(comparison_data)
-                    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                if product_data and any(product_data.values()):
+                    # Build comparison table
+                    comparison_data = []
                     
-                    # Find best deal
-                    best_entry = min(
-                        comparison_data,
-                        key=lambda x: float(''.join(c for c in x['💰 Price'] if c.isdigit() or c == '.'))
-                    )
+                    for region, prices_list in product_data.items():
+                        if prices_list:
+                            for price_info in prices_list:
+                                try:
+                                    price_val = float(price_info['price'])
+                                    comparison_data.append({
+                                        '🌍 Region': region,
+                                        '💰 Price': f"{price_info['currency']}{price_val:.2f}",
+                                        '💵 Code': price_info.get('currency', 'USD'),
+                                        '🛒 Store': price_info['site'][:50],
+                                        '📝 Product': price_info['name'][:60]
+                                    })
+                                except:
+                                    pass
                     
-                    st.success(f"✅ Best price found: {best_entry['💰 Price']} in {best_entry['🌍 Region']}")
+                    if comparison_data:
+                        comparison_df = pd.DataFrame(comparison_data)
+                        st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                        
+                        # Find best deal
+                        try:
+                            best_entry = min(
+                                comparison_data,
+                                key=lambda x: float(''.join(c for c in x['💰 Price'] if c.isdigit() or c == '.'))
+                            )
+                            
+                            st.success(f"✅ Best price: {best_entry['💰 Price']} in {best_entry['🌍 Region']}")
+                            
+                            # Download button
+                            csv = comparison_df.to_csv(index=False)
+                            st.download_button(
+                                label="📥 Download Comparison CSV",
+                                data=csv,
+                                file_name=f"{product_input}_{brand_name}_prices.csv",
+                                mime="text/csv"
+                            )
+                        except:
+                            st.info("Could not calculate best price")
+                    else:
+                        st.warning(f"⚠️ No prices found for '{product_input}'. Try a different product name.")
                 else:
-                    st.warning("⚠️ No pricing data found for this product. Try searching for a specific product below!")
-                
-                # Export option
-                if comparison_data:
-                    col1, col2 = st.columns(2)
+                    st.warning(f"⚠️ No results found for '{product_input}' across {brand_name} sites.")
+                    st.info("**Tips:**\n- Make sure you have the exact product name\n- Try searching with different keywords\n- Some sites may block scrapers")
                     
-                    with col1:
-                        csv = comparison_df.to_csv(index=False)
-                        st.download_button(
-                        label="📥 Download Comparison",
-                        data=csv,
-                        file_name=f"{selected_product['name']}_prices.csv",
-                        mime="text/csv"
-                    )
-                
+            except Exception as e:
+                st.error(f"❌ Error searching product: {str(e)}")
+                st.info("Try again or use a different product name")
+
+# ============================================================================
+# INITIAL STATE MESSAGE
+# ============================================================================
+
+if not st.session_state.brand_sites:
+    st.info("👈 **Enter a brand name in the sidebar to get started!**")
+    st.markdown("""
+    ### How to use:
+    1. **Search Brand** - Enter any brand (e.g., Lululemon, Nike, Adidas)
+    2. **View Sites** - See all regional websites found
+    3. **Search Product** - Enter a specific product (e.g., "Align Leggings")
+    4. **Compare Prices** - See prices across all regions
+    
+    ### Supported Regions:
+    🇺🇸 United States | 🇬🇧 UK | 🇨🇦 Canada | 🇦🇪 UAE | 🇩🇪 Germany | 🇦🇺 Australia | 🇫🇷 France | 🇯🇵 Japan
+    """)
+
                 with col2:
                     if st.button("🔄 Search Another Product"):
                         st.rerun()
