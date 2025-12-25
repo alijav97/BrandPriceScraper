@@ -242,86 +242,6 @@ if not st.session_state.brand_sites:
     🇺🇸 United States | 🇬🇧 UK | 🇨🇦 Canada | 🇦🇪 UAE | 🇩🇪 Germany | 🇦🇺 Australia | 🇫🇷 France | 🇯🇵 Japan
     """)
 
-                with col2:
-                    if st.button("🔄 Search Another Product"):
-                        st.rerun()
-            
-            else:
-                st.warning("⚠️ Could not find this product across regions")
-    
-    else:
-        st.info("📦 Featured products are loading or not available. Try searching for a specific product below.")
-    
-    # ========== CUSTOM PRODUCT SEARCH ==========
-    
-    st.divider()
-    st.subheader("🔎 Search for Specific Product")
-    
-    custom_search = st.text_input(
-        "What product are you looking for?",
-        placeholder="e.g., running shoes, jacket, etc...",
-        help="We'll search all discovered sites for this product"
-    )
-    
-    if st.button("Search Product", use_container_width=True):
-        if custom_search:
-            with st.spinner(f"🔎 Searching for '{custom_search}' across all sites..."):
-                try:
-                    aggregator = ProductAggregator()
-                    product_data = aggregator.aggregate_product_prices(
-                        custom_search,
-                        st.session_state.brand_sites,
-                        selector.search_engine.regions
-                    )
-                    
-                    if product_data['prices']:
-                        st.success(f"✅ Found '{custom_search}' in {len(product_data['prices'])} regions!")
-                        
-                        # Show results
-                        results = []
-                        for region, price_info in product_data['prices'].items():
-                            region_info = selector.search_engine.get_region_info(region)
-                            region_name = region_info.get('name', region) if region_info else region
-                            
-                            results.append({
-                                '🌍 Region': region_name,
-                                '💵 Price': f"{price_info['currency_code']}{price_info['price']:.2f}",
-                                '💱 Currency': price_info['currency'],
-                            })
-                        
-                        results_df = pd.DataFrame(results)
-                        st.dataframe(results_df, use_container_width=True, hide_index=True)
-                        
-                        # Download
-                        csv = results_df.to_csv(index=False)
-                        st.download_button(
-                            label="📥 Download Results",
-                            data=csv,
-                            file_name=f"{custom_search}_prices.csv",
-                            mime="text/csv"
-                        )
-                    else:
-                        st.warning(f"⚠️ Product '{custom_search}' not found on these sites")
-                
-                except Exception as e:
-                    st.error(f"Error searching: {str(e)}")
-        
-        else:
-            st.warning("Please enter a product name")
-
-else:
-    # Initial state
-    st.info("👈 Enter a brand name and click 'Search Across Web' to get started!")
-    
-    st.markdown("""
-    ### How it works:
-    1. **Enter a brand** (Nike, Lululemon, Adidas, etc.)
-    2. **We search** for official sites and retailers across regions
-    3. **Pick a product** from featured items
-    4. **See prices** in all regions and currencies
-    5. **Find best deals** instantly
-    """)
-
 # ============================================================================
 # FOOTER
 # ============================================================================
@@ -329,7 +249,7 @@ else:
 st.divider()
 st.markdown("""
 <div style='text-align: center; color: #999; font-size: 0.85em;'>
-    <p>🛍️ Smart Brand Price Tracker | Dynamic Web Search Edition</p>
-    <p>Powered by Web Search + Web Scraping + AI</p>
+    <p>🛍️ Smart Brand Price Tracker v2.0 | Dynamic Web Search</p>
+    <p>Search any brand, enter a product, compare prices globally!</p>
 </div>
 """, unsafe_allow_html=True)
