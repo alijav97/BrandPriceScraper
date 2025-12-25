@@ -7,7 +7,11 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import sys
 from dotenv import load_dotenv
+
+# Fix import paths
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import modules
 from src.search_engine import SmartSiteSelector, BrandSearchEngine
