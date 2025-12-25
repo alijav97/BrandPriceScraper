@@ -3,20 +3,42 @@ Smart Brand Price Tracker - Dynamic Search Edition
 Searches for brand sites across regions and compares prices automatically
 """
 
+import os
+import sys
+import importlib.util
+
+# Fix import paths FIRST before any other imports
+if os.path.exists(os.path.join(os.path.dirname(__file__), 'src')):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
-import sys
 from dotenv import load_dotenv
 
-# Fix import paths
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Import modules
-from src.search_engine import SmartSiteSelector, BrandSearchEngine
-from src.product_finder import ProductFinder, ProductAggregator
-from utils.openai_analyzer import PriceAnalyzer
+# Try standard import first, fall back to direct loading
+try:
+    from src.search_engine import SmartSiteSelector, BrandSearchEngine
+    from src.product_finder import ProductFinder, ProductAggregator
+    from utils.openai_analyzer import PriceAnalyzer
+except ImportError:
+    # Fallback: Direct file loading for Streamlit Cloud
+    spec = importlib.util.spec_from_file_location("search_engine", os.path.join(os.path.dirname(__file__), 'src', 'search_engine.py'))
+    search_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(search_module)
+    SmartSiteSelector = search_module.SmartSiteSelector
+    BrandSearchEngine = search_module.BrandSearchEngine
+    
+    spec = importlib.util.spec_from_file_location("product_finder", os.path.join(os.path.dirname(__file__), 'src', 'product_finder.py'))
+    product_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(product_module)
+    ProductFinder = product_module.ProductFinder
+    ProductAggregator = product_module.ProductAggregator
+    
+    spec = importlib.util.spec_from_file_location("openai_analyzer", os.path.join(os.path.dirname(__file__), 'utils', 'openai_analyzer.py'))
+    analyzer_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(analyzer_module)
+    PriceAnalyzer = analyzer_module.PriceAnalyzer
 
 # Load environment
 load_dotenv()
@@ -170,43 +192,45 @@ if st.session_state.brand_sites:
             # Aggregate prices across regions
             aggregator = ProductAggregator()
             product_data = aggregator.aggregate_product_prices(
-                selected_product['name'],
                 st.session_state.brand_sites,
-                selector.search_engine.regions
+                selected_product['name']
             )
             
-            if product_data['prices']:
+            if product_data:
                 # Create comparison table
                 comparison_data = []
                 
-                for region, price_info in product_data['prices'].items():
-                    region_info = selector.search_engine.get_region_info(region)
-                    region_name = region_info.get('name', region) if region_info else region
+                for region, prices_list in product_data.items():
+                    for price_info in prices_list:
+                        comparison_data.append({
+                            '🌍 Region': region,
+                            '💰 Price': f"{price_info['currency']}{price_info['price']:.2f}",
+                            '💵 Currency': price_info.get('currency', 'USD'),
+                            '🛒 Store': price_info['site'][:60],
+                            '📝 Product': price_info['name'][:50]
+                        })
+                
+                if comparison_data:
+                    comparison_df = pd.DataFrame(comparison_data)
+                    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
                     
-                    comparison_data.append({
-                        '🌍 Region': region_name,
-                        '💵 Price': f"{price_info['currency_code']}{price_info['price']:.2f}",
-                        '💱 Currency': price_info['currency'],
-                        '🔗 Link': price_info['site'][:50] + '...' if len(price_info['site']) > 50 else price_info['site']
-                    })
-                
-                comparison_df = pd.DataFrame(comparison_data)
-                st.dataframe(comparison_df, use_container_width=True, hide_index=True)
-                
-                # Find best deal
-                best_region = min(
-                    product_data['prices'].items(),
-                    key=lambda x: x[1]['price']
-                )
-                
-                st.success(f"✅ Best price: {best_region[1]['currency_code']}{best_region[1]['price']:.2f} in {best_region[0]}")
+                    # Find best deal
+                    best_entry = min(
+                        comparison_data,
+                        key=lambda x: float(''.join(c for c in x['💰 Price'] if c.isdigit() or c == '.'))
+                    )
+                    
+                    st.success(f"✅ Best price found: {best_entry['💰 Price']} in {best_entry['🌍 Region']}")
+                else:
+                    st.warning("⚠️ No pricing data found for this product. Try searching for a specific product below!")
                 
                 # Export option
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    csv = comparison_df.to_csv(index=False)
-                    st.download_button(
+                if comparison_data:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        csv = comparison_df.to_csv(index=False)
+                        st.download_button(
                         label="📥 Download Comparison",
                         data=csv,
                         file_name=f"{selected_product['name']}_prices.csv",
